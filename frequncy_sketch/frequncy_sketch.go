@@ -1,31 +1,18 @@
 package frequncy_sketch
 
 import (
+	"gaffeine/utils"
 	"math"
 	"math/bits"
 )
 
-func CeilingPowerOfTwo32(x int) int {
-	// From Hacker's Delight, Chapter 3, Harry S. Warren Jr.
-	tmp := -1 * bits.LeadingZeros32(uint32(x-1))
-	if tmp < 0 {
-		tmp = 32 + tmp
-	}
-	return 1 << tmp
-}
-
-func CeilingPowerOfTwo64(x int64) int64 {
-	// From Hacker's Delight, Chapter 3, Harry S. Warren Jr.
-	var n int64 = 1
-	tmp := -1 * bits.LeadingZeros64(uint64(x-1))
-	if tmp < 0 {
-		tmp = 64 + tmp
-	}
-	return n << tmp
-}
+const (
+	ResetMask = int64(0x7777777777777777) // uint64类型
+	OneMask   = int64(0x1111111111111111) // uint64类型
+)
 
 type Key interface {
-	~int
+	~int | ~uint | ~float32 | ~float64
 }
 
 type FrequencySketch[K Key] struct {
@@ -48,6 +35,10 @@ func New[K Key]() *FrequencySketch[K] {
 	switch any(sketch.KeyType).(type) {
 	case int, uint, int8, uint8, int16, uint16, int32, uint32, int64, uint64:
 		sketch.HashCoder = &IntegerHashCoder[K]{}
+	case float32:
+		sketch.HashCoder = &Float32HashCoder[K]{}
+	case float64:
+		sketch.HashCoder = &Float64HashCoder[K]{}
 	default:
 		panic("unsupported type")
 	}
@@ -56,15 +47,15 @@ func New[K Key]() *FrequencySketch[K] {
 }
 
 func (f *FrequencySketch[K]) EnsureCapacity(maximumSize int) *FrequencySketch[K] {
-	if maximumSize < 0 {
+	if maximumSize <= 0 {
 		maximumSize = 8
 	}
 
-	maximum := int(math.Min(float64(maximumSize), math.MaxInt>>1))
-	if len(f.Table) >= maximum {
+	maximum := int(math.Min(float64(maximumSize), math.MaxInt32>>1))
+	if f.Table != nil && len(f.Table) >= maximum {
 		return f
 	}
-	newSize := int(math.Max(float64(CeilingPowerOfTwo32(maximum)), 8))
+	newSize := int(math.Max(float64(utils.CeilingPowerOfTwo32(maximum)), 8))
 	f.Table = make([]int64, newSize)
 	if maximumSize == 0 {
 		f.SampleSize = 10
@@ -76,10 +67,10 @@ func (f *FrequencySketch[K]) EnsureCapacity(maximumSize int) *FrequencySketch[K]
 	// 				 而8个int64为一个块，刚好是64个字节，从而有更快的读取速度
 	// b）-1，是因为：len(f.Table)>>3得到的数一定是一个首位是1，其他位是0的数。
 	// 				-1后，首位是0，其他位是1，从而得到一个掩码。
-	f.BlockMask = int(uint(len(f.Table))>>3 - 1)
+	f.BlockMask = len(f.Table)>>3 - 1
 
-	if f.SampleSize <= 0 {
-		f.SampleSize = math.MaxInt
+	if int32(f.SampleSize) <= 0 { // 防止溢出
+		f.SampleSize = math.MaxInt32
 	}
 	f.Size = 0
 
@@ -87,9 +78,111 @@ func (f *FrequencySketch[K]) EnsureCapacity(maximumSize int) *FrequencySketch[K]
 }
 
 func (f *FrequencySketch[K]) Increment(key K) *FrequencySketch[K] {
+	// 4、5、6、7存放的是table的index
+	// 0、1、2、3存放的是table[index]的计数器的offset
+	// 注意：table[index]是一个long，所以有64/4=16个计数器
+	index := make([]int, 8)
+	blockHash := f.spread(f.HashCoder.HashCode(key))
+	counterHash := f.rehash(blockHash)
+	block := int(blockHash&uint32(f.BlockMask)) << 3 // 找到table的位置，table的一个块有8个uint64，所以要<<3
+
+	for i := 0; i < 4; i++ {
+		h := counterHash >> (i << 3)           // i<<3 在循环中，分别是：0、8、16、24
+		index[i] = int((h >> 1) & 15)          // 执行>>1，是为了提高hash的分散性；&15 是把结果控制在0-15之间
+		offset := int(h & 1)                   // offset 结果只能是0或者1，换句话说，h & 1 相当于 h % 2的结果，也就是 offset 代表h是奇数还是偶数
+		index[i+4] = block + offset + (i << 1) // block是table的下标；offset的结果只能是0或者1；i << 1 只能是0、2、4、6；所以，最后的值：block + 0/1 + 0/2/4/6
+	}
+	added := f.incrementAt(index[4], index[0])
+	added = f.incrementAt(index[5], index[1]) || added
+	added = f.incrementAt(index[6], index[2]) || added
+	added = f.incrementAt(index[7], index[3]) || added
+
+	if added {
+		f.Size += 1
+		if f.Size == f.SampleSize {
+			f.Reset()
+		}
+	}
 	return f
 }
 
 func (f *FrequencySketch[K]) Frequency(key K) int {
-	return 0
+	count := make([]int, 4)
+	blockHash := f.spread(f.HashCoder.HashCode(key))
+	counterHash := f.rehash(blockHash)
+	block := int(blockHash&uint32(f.BlockMask)) << 3
+
+	for i := 0; i < 4; i++ {
+		h := counterHash >> (i << 3) // i<<3 在循环中，分别是：0、8、16、24
+		index := int((h >> 1) & 15)  // 执行>>1，是为了提高hash的分散性；&15 是把结果控制在0-15之间
+		offset := int(h & 1)         // offset 结果只能是0或者1，换句话说，h & 1 相当于 h % 2的结果，也就是 offset 代表h是奇数还是偶数
+		tableV := uint64(f.Table[block+offset+(i<<1)])
+		count[i] = int(int64(tableV>>(index<<2)) & int64(0xf))
+	}
+
+	return int(math.Min(
+		math.Min(float64(count[0]), float64(count[1])),
+		math.Min(float64(count[2]), float64(count[3])),
+	))
+}
+
+// Applies a supplemental hash function to defend against a poor quality hash.
+// https://github.com/skeeto/hash-prospector#three-round-functions
+func (f *FrequencySketch[K]) spread(x uint32) uint32 {
+	x ^= x >> 17
+	x *= 0xed5ad4bb
+	x ^= x >> 11
+	x *= 0xac4c1b51
+	x ^= x >> 15
+	return x
+}
+
+// Applies another round of hashing for additional randomization.
+// https://github.com/skeeto/hash-prospector#three-round-functions
+func (f *FrequencySketch[K]) rehash(x uint32) uint32 {
+	x *= 0x31848bab
+	x ^= x >> 14
+	return x
+}
+
+/**
+ * Increments the specified counter by 1 if it is not already at the maximum value (15).
+ *
+ * @param i the table index (16 counters if table[i])
+ * @param j the counter to increment
+ * @return if incremented
+ */
+func (f *FrequencySketch[K]) incrementAt(i, j int) bool {
+
+	// 相当于j*4，那么offset的结果是[0, 60]。
+	// 这个结果代表了第 j 个计数器在 long 值中的具体位置。1一个计数器是4位。所以：
+	//    	j=0，那么offset=0，表示0-3；
+	//		j=1，那么offset=4，表示4-7；
+	//		j=2，那么offset=8，表示8-11；
+	//  	...... 以此类推
+	offset := j << 2
+
+	// 0xfL 表示一个值为 1111（4 个二进制 1）的 long 类型常量，也就是一个 4-bit 的掩码。
+	// 0xfL << offset 将这个 4-bit 掩码移到相应的位置上，对应到 long 值中某个 4-bit 计数器的位置。
+	mask := int64(0xf) << offset
+
+	if (f.Table[i] & mask) != mask {
+		// 判断是否已经达到最大数15
+		f.Table[i] += int64(1) << offset // 如果是，则将这个计数器值加1; 1L << offset 就是把1左移offset位置，也就是这个计数器的位置
+		return true
+	}
+	return false
+}
+
+func (f *FrequencySketch[K]) Reset() *FrequencySketch[K] {
+	// count: 表示有多少个有效计数器。
+	count := 0
+	for i := 0; i < len(f.Table); i++ {
+		// 只能统计奇数的计算器，所以，count不是精确值，而是估算值
+		// 为什么要用估算，而不用精确算法。是为了性能和效率。
+		count += bits.OnesCount64(uint64(f.Table[i] & OneMask))
+		f.Table[i] = int64(uint64(f.Table[i])>>1) & ResetMask // >>>1 相当于除以2，但是注意：1111，1111 执行后，结果为：0111，1111；可以发现第2个计数器仍然是1111，所以，还需要 & ResetMask，将第2个计数器的高位设置为0
+	}
+	f.Size = (f.Size - (count >> 2)) >> 1
+	return f
 }
