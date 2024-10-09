@@ -1,8 +1,9 @@
-package utils
+package frequncy_sketch_test
 
 import (
 	"bufio"
 	"fmt"
+	fs "gaffeine/frequncy_sketch"
 	"github.com/stretchr/testify/assert"
 	"io"
 	"os"
@@ -16,7 +17,7 @@ func TestCeilingPowerOfTwo32(t *testing.T) {
 	length := len(numbers)
 	for i := 0; i < length; i++ {
 		num, expected := numbers[i], expecteds[i]
-		relt := CeilingPowerOfTwo32(num)
+		relt := fs.CeilingPowerOfTwo32(num)
 		assert.Equal(t, expected, relt, fmt.Sprintf("integer.CeilingPowerOfTwo(%d)=%d, 现在=%d", num, expected, relt))
 	}
 }
@@ -26,7 +27,7 @@ func TestCeilingPowerOfTwo64(t *testing.T) {
 	length := len(numbers)
 	for i := 0; i < length; i++ {
 		num, expected := numbers[i], expecteds[i]
-		relt := CeilingPowerOfTwo64(int64(num))
+		relt := fs.CeilingPowerOfTwo64(int64(num))
 		assert.Equal(t, int64(expected), relt, fmt.Sprintf("long.CeilingPowerOfTwo(%d)=%d, 现在=%d", num, expected, relt))
 	}
 }

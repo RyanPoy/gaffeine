@@ -1,6 +1,9 @@
-package utils
+package frequncy_sketch
 
-import "math/bits"
+import (
+	"math"
+	"math/bits"
+)
 
 func CeilingPowerOfTwo32(x int) int {
 	// From Hacker's Delight, Chapter 3, Harry S. Warren Jr.
@@ -19,4 +22,12 @@ func CeilingPowerOfTwo64(x int64) int64 {
 		tmp = 64 + tmp
 	}
 	return n << tmp
+}
+
+func Min[T1, T2 Key](a T1, b T2) float64 {
+	return math.Min(float64(a), float64(b))
+}
+
+func Max[T1, T2 Key](a T1, b T2) float64 {
+	return math.Max(float64(a), float64(b))
 }

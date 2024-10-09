@@ -2,7 +2,6 @@ package frequncy_sketch_test
 
 import (
 	fs "gaffeine/frequncy_sketch"
-	"gaffeine/utils"
 	"github.com/stretchr/testify/assert"
 	"math"
 	"math/bits"
@@ -64,7 +63,7 @@ func TestEnsureCapacity_maximum(t *testing.T) {
 	newSize := math.MaxInt32/10 + 1
 	sketch.EnsureCapacity(newSize)
 	assert.Equal(t, math.MaxInt32, sketch.SampleSize)
-	assert.Equal(t, utils.CeilingPowerOfTwo32(newSize), len(sketch.Table))
+	assert.Equal(t, fs.CeilingPowerOfTwo32(newSize), len(sketch.Table))
 	assert.Equal(t, (len(sketch.Table)>>3)-1, sketch.BlockMask)
 }
 
