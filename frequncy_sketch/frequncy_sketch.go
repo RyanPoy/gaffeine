@@ -14,37 +14,54 @@ type Key interface {
 	~int | ~uint | ~float32 | ~float64
 }
 
-// FrequencySketch maintains a 4-bit CountMinSketch [1] with periodic aging to provide the popularity
-// history for the TinyLfu admission policy [2]. The time and space efficiency of the sketch
-// allows it to cheaply estimate the frequency of an entry in a stream of cache access events.
+// FrequencySketch maintains a 4-bit CountMinSketch [1] with periodic aging to provide the popularity history for the TinyLfu admission policy [2].
+// 本类维护一个 4 位 CountMinSketch [1]，并定期进行衰减，以提供 TinyLfu 接纳策略 [2] 的流行历史。
+// The time and space efficiency of the sketch allows it to cheaply estimate the frequency of an entry in a stream of cache access events.
+// 该草图的时间和空间效率使其能够廉价地估算在一系列缓存访问事件中的条目频率。
 //
-// The counter matrix is represented as a single-dimensional array holding 16 counters per slot. A
-// fixed depth of four balances the accuracy and cost, resulting in a width of four times the
-// length of the array. To retain an accurate estimation, the array's length equals the maximum
-// number of entries in the cache, increased to the closest power-of-two to exploit more efficient
-// bit masking. This configuration results in a confidence of 93.75% and an error bound of
-// e / width.
+// The counter matrix is represented as a single-dimensional array holding 16 counters per slot.
+// 计数矩阵表示为一个一维数组，每个槽位持有 16 个计数器。
+// A fixed depth of four balances the accuracy and cost, resulting in a width of four times the length of the array.
+// 固定的深度为四平衡了准确性和成本，使得数组的宽度是数组长度的四倍。
+// To retain an accurate estimation, the array's length equals the maximum number of entries in the cache,
+// 为了保持准确的估计，数组的长度等于缓存中的最大条目数，
+// increased to the closest power-of-two to exploit more efficient bit masking.
+// 增加到最接近的二的幂以利用更高效的位掩码。
+// This configuration results in a confidence of 93.75% and an error bound of e / width.
+// 该配置的置信度为 93.75%，误差界限为 e / 宽度。
 //
-// To improve hardware efficiency, an item's counters are constrained to a 64-byte block, which is
-// the size of an L1 cache line. This differs from the theoretical ideal where counters are
-// uniformly distributed to minimize collisions. In that configuration, the memory accesses are
-// not predictable and lack spatial locality, which may cause the pipeline to need to wait for
-// four memory loads. Instead, the items are uniformly distributed to blocks, and each counter is
-// uniformly selected from a distinct 16-byte segment. While the runtime memory layout may result
-// in the blocks not being cache-aligned, the L2 spatial prefetcher tries to load aligned pairs of
-// cache lines, so the typical cost is only one memory access.
+// To improve hardware efficiency, an item's counters are constrained to a 64-byte block, which is the size of an L1 cache line.
+// 为了提高硬件效率，条目的计数器被限制在 64 字节的块中，这正是 L1 缓存行的大小。
+// This differs from the theoretical ideal where counters are uniformly distributed to minimize collisions.
+// 这与理论理想状态不同，后者要求计数器均匀分布以最小化碰撞。
+// In that configuration, the memory accesses are not predictable and lack spatial locality,
+// 在这种配置中，内存访问是不可预测的，并且缺乏空间局部性，
+// which may cause the pipeline to need to wait for four memory loads.
+// 这可能导致流水线需要等待四次内存加载。
+// Instead, the items are uniformly distributed to blocks, and each counter is uniformly selected from a distinct 16-byte segment.
+// 相反，条目均匀分布到块中，每个计数器均匀地从不同的 16 字节段中选择。
+// While the runtime memory layout may result in the blocks not being cache-aligned,
+// 虽然运行时内存布局可能导致块未对齐缓存，
+// the L2 spatial prefetcher tries to load aligned pairs of cache lines, so the typical cost is only one memory access.
+// 但 L2 空间预取器尝试加载对齐的缓存行对，因此典型成本仅为一次内存访问。
 //
-// The frequency of all entries is aged periodically using a sampling window based on the maximum
-// number of entries in the cache. This is referred to as the reset operation by TinyLfu and keeps
-// the sketch fresh by dividing all counters by two and subtracting based on the number of odd
-// counters found. The O(n) cost of aging is amortized, ideal for hardware prefetching, and uses
-// inexpensive bit manipulations per array location.
+// The frequency of all entries is aged periodically using a sampling window based on the maximum number of entries in the cache.
+// 所有条目的频率都使用基于缓存中最大条目数的采样窗口定期衰减。
+// This is referred to as the reset operation by TinyLfu and keeps the sketch fresh by dividing all counters by two and subtracting based on the number of odd counters found.
+// 这被 TinyLfu 称为重置操作，通过将所有计数器除以二并根据找到的奇数计数器的数量进行减法，保持草图的新鲜度。
+// The O(n) cost of aging is amortized, ideal for hardware prefetching, and uses inexpensive bit manipulations per array location.
+// 衰减的 O(n) 成本是摊销的，非常适合硬件预取，并对每个数组位置使用廉价的位操作。
 //
 // [1] An Improved Data Stream Summary: The Count-Min Sketch and its Applications
+// [1] 改进的数据流摘要：Count-Min Sketch 及其应用
 // http://dimacs.rutgers.edu/~graham/pubs/papers/cm-full.pdf
+//
 // [2] TinyLFU: A Highly Efficient Cache Admission Policy
+// [2] TinyLFU：一种高效的缓存接纳策略
 // https://dl.acm.org/citation.cfm?id=3149371
+//
 // [3] Hash Function Prospector: Three round functions
+// [3] 哈希函数探测器：三轮函数
 // https://github.com/skeeto/hash-prospector#three-round-functions
 type FrequencySketch[K Key] struct {
 	KeyType    K
