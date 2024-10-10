@@ -1,2 +1,2 @@
 # gaffeine
-An efficient cache implemented in Golang using Window-TinyLFU, ported from [caffeine](https://github.com/ben-manes/caffeine)
+An efficient Window-TinyLFU cache implemented in Golang, ported from [caffeine](https://github.com/ben-manes/caffeine)
