@@ -1,4 +1,4 @@
-package frequncy_sketch
+package utils
 
 import (
 	"math"

@@ -1,6 +1,8 @@
 package frequncy_sketch
 
 import (
+	"gaffeine/global"
+	"gaffeine/utils"
 	"math"
 	"math/bits"
 )
@@ -10,27 +12,23 @@ const (
 	OneMask   = int64(0x1111111111111111) // uint64类型
 )
 
-type Key interface {
-	~int | ~uint | ~float32 | ~float64
-}
-
 // FrequencySketch maintains a 4-bit CountMinSketch [1] with periodic aging to provide the popularity history for the TinyLfu admission policy [2].
 // 本类维护一个 4 位 CountMinSketch [1]，并定期进行衰减，以提供 TinyLfu 接纳策略 [2] 的流行历史。
-// The time and space efficiency of the sketch allows it to cheaply estimate the frequency of an entry in a stream of cache access events.
+// The time and space efficiency of the sketch allows it to cheaply estimate the frequency of an entry in a stream of caches access events.
 // 该草图的时间和空间效率使其能够廉价地估算在一系列缓存访问事件中的条目频率。
 //
 // The counter matrix is represented as a single-dimensional array holding 16 counters per slot.
 // 计数矩阵表示为一个一维数组，每个槽位持有 16 个计数器。
 // A fixed depth of four balances the accuracy and cost, resulting in a width of four times the length of the array.
 // 固定的深度为四平衡了准确性和成本，使得数组的宽度是数组长度的四倍。
-// To retain an accurate estimation, the array's length equals the maximum number of entries in the cache,
+// To retain an accurate estimation, the array's length equals the maximum number of entries in the caches,
 // 为了保持准确的估计，数组的长度等于缓存中的最大条目数，
 // increased to the closest power-of-two to exploit more efficient bit masking.
 // 增加到最接近的二的幂以利用更高效的位掩码。
 // This configuration results in a confidence of 93.75% and an error bound of e / width.
 // 该配置的置信度为 93.75%，误差界限为 e / 宽度。
 //
-// To improve hardware efficiency, an item's counters are constrained to a 64-byte block, which is the size of an L1 cache line.
+// To improve hardware efficiency, an item's counters are constrained to a 64-byte block, which is the size of an L1 caches line.
 // 为了提高硬件效率，条目的计数器被限制在 64 字节的块中，这正是 L1 缓存行的大小。
 // This differs from the theoretical ideal where counters are uniformly distributed to minimize collisions.
 // 这与理论理想状态不同，后者要求计数器均匀分布以最小化碰撞。
@@ -40,12 +38,12 @@ type Key interface {
 // 这可能导致流水线需要等待四次内存加载。
 // Instead, the items are uniformly distributed to blocks, and each counter is uniformly selected from a distinct 16-byte segment.
 // 相反，条目均匀分布到块中，每个计数器均匀地从不同的 16 字节段中选择。
-// While the runtime memory layout may result in the blocks not being cache-aligned,
+// While the runtime memory layout may result in the blocks not being caches-aligned,
 // 虽然运行时内存布局可能导致块未对齐缓存，
-// the L2 spatial prefetcher tries to load aligned pairs of cache lines, so the typical cost is only one memory access.
+// the L2 spatial prefetcher tries to load aligned pairs of caches lines, so the typical cost is only one memory access.
 // 但 L2 空间预取器尝试加载对齐的缓存行对，因此典型成本仅为一次内存访问。
 //
-// The frequency of all entries is aged periodically using a sampling window based on the maximum number of entries in the cache.
+// The frequency of all entries is aged periodically using a sampling window based on the maximum number of entries in the caches.
 // 所有条目的频率都使用基于缓存中最大条目数的采样窗口定期衰减。
 // This is referred to as the reset operation by TinyLfu and keeps the sketch fresh by dividing all counters by two and subtracting based on the number of odd counters found.
 // 这被 TinyLfu 称为重置操作，通过将所有计数器除以二并根据找到的奇数计数器的数量进行减法，保持草图的新鲜度。
@@ -63,7 +61,7 @@ type Key interface {
 // [3] Hash Function Prospector: Three round functions
 // [3] 哈希函数探测器：三轮函数
 // https://github.com/skeeto/hash-prospector#three-round-functions
-type FrequencySketch[K Key] struct {
+type FrequencySketch[K global.Key] struct {
 	KeyType    K
 	SampleSize int // 需要进行Reset的容量
 	BlockMask  int // 一个块(8个int64大小）的掩码
@@ -73,7 +71,7 @@ type FrequencySketch[K Key] struct {
 	HashCoder HashCoder[K]
 }
 
-func New[K Key]() *FrequencySketch[K] {
+func New[K global.Key]() *FrequencySketch[K] {
 	sketch := FrequencySketch[K]{
 		Table:      nil,
 		SampleSize: 0,
@@ -96,18 +94,18 @@ func New[K Key]() *FrequencySketch[K] {
 
 // EnsureCapacity Initializes and increases the capacity of this <tt>FrequencySketch</tt> instance, if necessary,
 // to ensure that it can accurately estimate the popularity of elements given the maximum size of
-// the cache. This operation forgets all previous counts when resizing.
-// @param maximumSize the maximum size of the cache
+// the caches. This operation forgets all previous counts when resizing.
+// @param maximumSize the maximum size of the caches
 func (f *FrequencySketch[K]) EnsureCapacity(maximumSize int) *FrequencySketch[K] {
 	if maximumSize <= 0 {
 		maximumSize = 8
 	}
 
-	maximum := int(Min(maximumSize, math.MaxInt32>>1))
+	maximum := int(utils.Min(maximumSize, math.MaxInt32>>1))
 	if f.Table != nil && len(f.Table) >= maximum {
 		return f
 	}
-	newSize := int(Max(CeilingPowerOfTwo32(maximum), 8))
+	newSize := int(utils.Max(utils.CeilingPowerOfTwo32(maximum), 8))
 	f.Table = make([]int64, newSize)
 	if maximumSize == 0 {
 		f.SampleSize = 10
@@ -182,7 +180,7 @@ func (f *FrequencySketch[K]) Frequency(key K) int {
 		count[i] = int(tableV >> (index << 2) & uint64(0xf))
 	}
 
-	return int(Min(Min(count[0], count[1]), Min(count[2], count[3])))
+	return int(utils.Min(utils.Min(count[0], count[1]), utils.Min(count[2], count[3])))
 }
 
 // spread Applies a supplemental hash function to defend against a poor quality hash.

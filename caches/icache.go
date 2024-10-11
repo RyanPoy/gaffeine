@@ -1,6 +1,8 @@
-package cache
+package caches
 
-type Cache interface {
-	Get(key string) (err error)
-	Set(key string, value []byte) (err error)
+import "gaffeine/global"
+
+type Cache[K global.Key] interface {
+	Get(key K) (interface{}, error)
+	Set(key K, value interface{}) error
 }

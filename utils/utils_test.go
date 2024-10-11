@@ -1,9 +1,9 @@
-package frequncy_sketch_test
+package utils_test
 
 import (
 	"bufio"
 	"fmt"
-	fs "gaffeine/frequncy_sketch"
+	fs "gaffeine/utils"
 	"github.com/stretchr/testify/assert"
 	"io"
 	"os"
