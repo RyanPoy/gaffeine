@@ -24,10 +24,10 @@ func CeilingPowerOfTwo64(x int64) int64 {
 	return n << tmp
 }
 
-func Min[T1, T2 Key](a T1, b T2) float64 {
+func Min[T1, T2 ~int | float32 | float64](a T1, b T2) float64 {
 	return math.Min(float64(a), float64(b))
 }
 
-func Max[T1, T2 Key](a T1, b T2) float64 {
+func Max[T1, T2 ~int | float32 | float64](a T1, b T2) float64 {
 	return math.Max(float64(a), float64(b))
 }
