@@ -5,7 +5,6 @@ import (
 	"fmt"
 	fs "gaffeine/utils"
 	"github.com/stretchr/testify/assert"
-	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -33,20 +32,23 @@ func TestCeilingPowerOfTwo64(t *testing.T) {
 }
 
 func readLines(fname string) ([]int, []int) {
-	f, err := os.Open(fname) // 用Caffeine的Java版本生成10w数据
+	f, err := os.Open(fname)
 	if err != nil {
-		//defer f.Close()
+		return nil, nil
 	}
-	reader := bufio.NewReader(f)
+
+	func(file *os.File) { defer file.Close() }(f)
+
 	numbers, expecteds := make([]int, 0), make([]int, 0)
 
-	for {
-		line, ferr := reader.ReadString('\n')
-		if ferr != nil && ferr == io.EOF {
-			break
-		}
+	for scanner := bufio.NewScanner(f); scanner.Scan(); {
+		line := scanner.Text()
 		line = strings.TrimSpace(line)
 		vs := strings.Split(line, ",")
+
+		if len(vs) != 2 {
+			continue
+		}
 
 		num, _ := strconv.Atoi(vs[0])
 		expected, _ := strconv.Atoi(vs[1])
