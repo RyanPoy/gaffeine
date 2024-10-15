@@ -66,9 +66,7 @@ type FrequencySketch[K global.Key] struct {
 	SampleSize int // 需要进行Reset的容量
 	BlockMask  int // 一个块(8个int64大小）的掩码
 	Size       int // 当前已经使用的计数器个数，这个是一个评估值，不是一个精确值
-
-	Table     []int64
-	HashCoder HashCoder[K]
+	Table      []int64
 }
 
 func New[K global.Key]() *FrequencySketch[K] {
@@ -78,17 +76,6 @@ func New[K global.Key]() *FrequencySketch[K] {
 		BlockMask:  0,
 		Size:       0,
 	}
-	switch any(sketch.KeyType).(type) {
-	case int, uint, int8, uint8, int16, uint16, int32, uint32, int64, uint64:
-		sketch.HashCoder = &IntegerHashCoder[K]{}
-	case float32:
-		sketch.HashCoder = &Float32HashCoder[K]{}
-	case float64:
-		sketch.HashCoder = &Float64HashCoder[K]{}
-	default:
-		panic("unsupported type")
-	}
-
 	return &sketch
 }
 
@@ -139,7 +126,7 @@ func (f *FrequencySketch[K]) Increment(key K) *FrequencySketch[K] {
 	// 0、1、2、3存放的是table[index]的计数器的offset
 	// 注意：table[index]是一个long，所以有64/4=16个计数器
 	index := make([]int, 8)
-	blockHash := f.spread(f.HashCoder.HashCode(key))
+	blockHash := f.spread(hashcode(key))
 	counterHash := f.rehash(blockHash)
 	block := int(blockHash&uint32(f.BlockMask)) << 3 // 找到table的位置，table的一个块有8个uint64，所以要<<3
 
@@ -168,7 +155,7 @@ func (f *FrequencySketch[K]) Increment(key K) *FrequencySketch[K] {
 // @return the estimated number of occurrences of the element; possibly zero but never negative
 func (f *FrequencySketch[K]) Frequency(key K) int {
 	count := make([]int, 4)
-	blockHash := f.spread(f.HashCoder.HashCode(key))
+	blockHash := f.spread(hashcode(key))
 	counterHash := f.rehash(blockHash)
 	block := int(blockHash&uint32(f.BlockMask)) << 3
 
