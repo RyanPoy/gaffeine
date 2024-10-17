@@ -37,8 +37,8 @@ func TestSet_new(t *testing.T) {
 
 	ele, ok := cache.DataMap[k]
 	assert.True(t, ok)
-	assert.Equal(t, v, ele.Value.(*caches.Node[string]).Value.(int))
-	assert.True(t, ele.Value.(*caches.Node[string]).IsInWindow())
+	assert.Equal(t, v, ele.Value.(int))
+	assert.True(t, ele.IsInWindow())
 }
 
 func TestSet_update(t *testing.T) {
@@ -51,11 +51,11 @@ func TestSet_update(t *testing.T) {
 
 	ele, ok := cache.DataMap[k]
 	assert.True(t, ok)
-	assert.Equal(t, v2, ele.Value.(*caches.Node[string]).Value.(int))
-	assert.True(t, ele.Value.(*caches.Node[string]).IsInWindow())
+	assert.Equal(t, v2, ele.Value.(int))
+	assert.True(t, ele.IsInWindow())
 }
 
-func TestSet_moveToProbationFromWindow(t *testing.T) {
+func TestSet_moveToProbationFromWindowWhileProbationFrequencyMoreThanWindow(t *testing.T) {
 	cache := makeSizeCache(4)
 	k1, v1 := "key1", 10
 	k2, v2 := "key2", 20
@@ -65,15 +65,15 @@ func TestSet_moveToProbationFromWindow(t *testing.T) {
 	cache.Set(k3, v3)
 
 	ele, _ := cache.DataMap[k1]
-	assert.True(t, ele.Value.(*caches.Node[string]).IsInProbation())
+	assert.True(t, ele.IsInProbation())
 
 	ele, _ = cache.DataMap[k2]
-	assert.Equal(t, v2, ele.Value.(*caches.Node[string]).Value.(int))
-	assert.True(t, ele.Value.(*caches.Node[string]).IsInWindow())
+	assert.Equal(t, v2, ele.Value.(int))
+	assert.True(t, ele.IsInWindow())
 
 	ele, _ = cache.DataMap[k3]
-	assert.Equal(t, v3, ele.Value.(*caches.Node[string]).Value.(int))
-	assert.True(t, ele.Value.(*caches.Node[string]).IsInWindow())
+	assert.Equal(t, v3, ele.Value.(int))
+	assert.True(t, ele.IsInWindow())
 }
 
 //
