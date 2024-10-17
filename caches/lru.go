@@ -13,7 +13,7 @@ type LRU[K global.Key] struct {
 func NewLRU[K global.Key](size int, data map[K]*Element) *LRU[K] {
 	return &LRU[K]{
 		data: data,
-		lst:  New(),
+		lst:  NewList(),
 		size: size,
 	}
 }

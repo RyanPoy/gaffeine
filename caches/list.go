@@ -75,7 +75,7 @@ func (l *List) Init() *List {
 }
 
 // New returns an initialized list.
-func New() *List { return new(List).Init() }
+func NewList() *List { return new(List).Init() }
 
 // Len returns the number of elements of list l.
 // The complexity is O(1).
@@ -95,13 +95,6 @@ func (l *List) Back() *Element {
 		return nil
 	}
 	return l.root.prev
-}
-
-// lazyInit lazily initializes a zero List value.
-func (l *List) lazyInit() {
-	if l.root.next == nil {
-		l.Init()
-	}
 }
 
 // insert inserts e after at, increments l.len, and returns e.
@@ -151,16 +144,10 @@ func (l *List) Remove(e *Element) any {
 }
 
 // PushFront inserts a new element e with value v at the front of list l and returns e.
-func (l *List) PushFront(v any) *Element {
-	l.lazyInit()
-	return l.insertValue(v, &l.root)
-}
+func (l *List) PushFront(v any) *Element { return l.insertValue(v, &l.root) }
 
 // PushBack inserts a new element e with value v at the back of list l and returns e.
-func (l *List) PushBack(v any) *Element {
-	l.lazyInit()
-	return l.insertValue(v, l.root.prev)
-}
+func (l *List) PushBack(v any) *Element { return l.insertValue(v, l.root.prev) }
 
 // InsertBefore inserts a new element e with value v immediately before mark and returns e.
 // If mark is not an element of l, the list is not modified.
