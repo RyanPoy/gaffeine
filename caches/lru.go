@@ -202,20 +202,6 @@ func (l *LRU[K]) MoveAfter(e, mark *Element[K]) {
 	l.move(e, mark)
 }
 
-// it returns the add element and next eviction element.
-// if it is not full, the eviction element is nil.
-//func (l *LRU[K]) Add(key K, value any) (*Element[K], *Element[K]) {
-//	if ele, ok := l.data[key]; ok {
-//		l.MoveToFront(ele)
-//		return ele, nil
-//	}
-//	ele := l.PushFront(value)
-//	if l.NeedEvict() {
-//		return ele, l.Back()
-//	}
-//	return ele, nil
-//}
-
 // Evict removes the least recently used element from the LRU.
 func (l *LRU[K]) EvictBack() *Element[K] {
 	if !l.NeedEvict() {
