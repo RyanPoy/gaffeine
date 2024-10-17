@@ -112,15 +112,6 @@ func (l *LRU[K]) insertValue(v any, at *Element[K]) *Element[K] {
 	return l.insert(&Element[K]{Value: v}, at)
 }
 
-// remove removes e from its lru, decrements l.len
-func (l *LRU[K]) remove(e *Element[K]) {
-	e.prev.next = e.next
-	e.next.prev = e.prev
-	e.next = nil // avoid memory leaks
-	e.prev = nil // avoid memory leaks
-	l.len--
-}
-
 // move moves e to next to at.
 func (l *LRU[K]) move(e, at *Element[K]) {
 	if e == at {
@@ -139,7 +130,11 @@ func (l *LRU[K]) move(e, at *Element[K]) {
 // It returns the element value e.Value.
 // The element must not be nil.
 func (l *LRU[K]) Remove(e *Element[K]) any {
-	l.remove(e)
+	e.prev.next = e.next
+	e.next.prev = e.prev
+	e.next = nil // avoid memory leaks
+	e.prev = nil // avoid memory leaks
+	l.len--
 	return e.Value
 }
 

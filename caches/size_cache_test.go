@@ -55,7 +55,7 @@ func TestSet_update(t *testing.T) {
 	assert.True(t, ele.IsInWindow())
 }
 
-func TestSet_moveToProbationFromWindowWhileProbationFrequencyMoreThanWindow(t *testing.T) {
+func TestSet_moveToProbationFromWindowWhileProbationIsNotFull(t *testing.T) {
 	cache := makeSizeCache(4)
 	k1, v1 := "key1", 10
 	k2, v2 := "key2", 20
@@ -76,33 +76,64 @@ func TestSet_moveToProbationFromWindowWhileProbationFrequencyMoreThanWindow(t *t
 	assert.True(t, ele.IsInWindow())
 }
 
-//
-//// 3、测试key、value，需要淘汰时候window，在DataMap中能看到key、value，同时旧数据淘汰了，window的容量依然合规。
-//func TestSet_evictFromWindow(t *testing.T) {
-//	cache := makeSizeCache(4)
-//
-//	// make window and probation full
-//	k1, v1 := "key1", 10
-//	k2, v2 := "key2", 20
-//	k3, v3 := "key3", 30
-//	k4, v4 := "key4", 40
-//	cache.Set(k1, v1) // window: k1
-//	cache.Set(k2, v2) // window: k2, k1
-//	cache.Set(k3, v3) // window: k3, k2;  probation: k1
-//	cache.Set(k4, v4) // window: k4, k3;  probation: k2, k1
-//
-//	// increase the frequency of probation elements
-//	cache.Get(k1)
-//	cache.Get(k2)
-//
-//	// will evict element k4 of window after set element k3
-//	// why not k1 of probation? because k1's frequency is more than k4
-//	k5, v5 := "key5", 50
-//	cache.Set(k5, v5) // window: k5, k4; probation: k2, k1
-//
-//	_, ok := cache.Get(k3)
-//	assert.False(t, ok)
-//}
+func TestSet_evictFromWindowWhileProbationFrequencyIsMoreThanWindow(t *testing.T) {
+	cache := makeSizeCache(4)
+
+	// make window and probation full
+	k1, v1 := "key1", 10
+	k2, v2 := "key2", 20
+	k3, v3 := "key3", 30
+	k4, v4 := "key4", 40
+	cache.Set(k1, v1) // window: k1
+	cache.Set(k2, v2) // window: k2, k1
+	cache.Set(k3, v3) // window: k3, k2;  probation: k1
+	cache.Set(k4, v4) // window: k4, k3;  probation: k2, k1
+
+	// increase the frequency of probation elements
+	cache.Sketch.Increment(k1)
+	cache.Sketch.Increment(k2)
+
+	// will evict element k3 of window after set element k5
+	// why not k1 of probation? because k1's frequency is more than k3
+	k5, v5 := "key5", 50
+	cache.Set(k5, v5) // window: k5, k4; probation: k2, k1
+
+	_, ok := cache.Get(k3)
+	assert.False(t, ok)
+
+	_, ok = cache.Get(k1)
+	assert.True(t, ok)
+}
+
+func TestSet_evictFromProbationWhileProbationFrequencyIsLessThanWindow(t *testing.T) {
+	cache := makeSizeCache(4)
+
+	// make window and probation full
+	k1, v1 := "key1", 10
+	k2, v2 := "key2", 20
+	k3, v3 := "key3", 30
+	k4, v4 := "key4", 40
+	cache.Set(k1, v1) // window: k1
+	cache.Set(k2, v2) // window: k2, k1
+	cache.Set(k3, v3) // window: k3, k2;  probation: k1
+	cache.Set(k4, v4) // window: k4, k3;  probation: k2, k1
+
+	// increase the frequency of probation elements
+	cache.Sketch.Increment(k3)
+
+	// will evict element k1 of probation after set element k5 to window
+	// why not k3 of window? because k1's frequency is less than k3
+	k5, v5 := "key5", 50
+	cache.Set(k5, v5) // window: k5, k4; probation: k3, k2
+
+	_, ok := cache.Get(k1)
+	assert.False(t, ok)
+
+	_, ok = cache.Get(k2)
+	assert.True(t, ok)
+	_, ok = cache.Get(k3)
+	assert.True(t, ok)
+}
 
 // 4、测试key、value，需要淘汰时候probation，在DataMap中能看到key、value，同时旧数据淘汰了，probation的容量依然合规。
 // 5、
@@ -117,5 +148,4 @@ func TestGet_foundAndIncrementFrequency(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, 10, v.(int))
 	assert.Equal(t, 2, cache.Sketch.Frequency(key))
-
 }
