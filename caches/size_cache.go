@@ -13,7 +13,7 @@ func init() {
 
 type SizeCache[K global.Key] struct {
 	MaximumSize int
-	DataMap     map[K]*Element
+	DataMap     map[K]*Element[K]
 	Window      *LRU[K]
 	Probation   *LRU[K]
 	Protected   *LRU[K]
@@ -22,7 +22,7 @@ type SizeCache[K global.Key] struct {
 
 func NewSizeCache[K global.Key](size int) *SizeCache[K] {
 
-	dataMap := make(map[K]*Element)
+	dataMap := make(map[K]*Element[K])
 	windowSize := int(float32(size) * 0.02)
 	probationSize := int(float32(size) * 0.2)
 	protectedSize := probationSize * 4

@@ -5,15 +5,15 @@ import (
 )
 
 type LRU[K global.Key] struct {
-	data map[K]*Element
+	data map[K]*Element[K]
 	size int
-	lst  *List
+	lst  *List[K]
 }
 
-func NewLRU[K global.Key](size int, data map[K]*Element) *LRU[K] {
+func NewLRU[K global.Key](size int, data map[K]*Element[K]) *LRU[K] {
 	return &LRU[K]{
 		data: data,
-		lst:  NewList(),
+		lst:  NewList[K](),
 		size: size,
 	}
 }
@@ -26,7 +26,7 @@ func (lru *LRU[K]) WhetherToEvict() bool { return lru.lst.Len() > lru.size }
 // Add adds a new key-value pair to the LRU.
 // it returns the add element and next eviction element.
 // if it is not full, the eviction element is nil.
-func (lru *LRU[K]) Add(key K, value any) (*Element, *Element) {
+func (lru *LRU[K]) Add(key K, value any) (*Element[K], *Element[K]) {
 	if ele, ok := lru.data[key]; ok {
 		lru.lst.MoveToFront(ele)
 		return ele, nil
@@ -39,7 +39,7 @@ func (lru *LRU[K]) Add(key K, value any) (*Element, *Element) {
 }
 
 // Evict removes the least recently used element from the LRU.
-func (lru *LRU[K]) Evict() *Element {
+func (lru *LRU[K]) Evict() *Element[K] {
 	if !lru.WhetherToEvict() {
 		return nil
 	}
