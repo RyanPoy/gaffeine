@@ -57,11 +57,11 @@ func NewSizeCache[K global.Key](size int) *SizeCache[K] {
 //	如果probation的 victim(first) 和 candidate(last) 进行对比，按照FrequencyCandidate 和 FrequencyVictim 和 随机数 一起来判断淘汰 Victim 或者 Candidate。到此：Cache的当前权重已经收缩到合理值了。
 func (c *SizeCache[K]) Set(key K, value interface{}) {
 	if ele, ok := c.DataMap[key]; ok {
-		ele.Value.(*global.Node[K]).Value = value
+		ele.Value.(*Node[K]).Value = value
 		return
 	}
 
-	addEle, windowCandidateEle := c.Window.Add(key, global.NewNode[K](key, value))
+	addEle, windowCandidateEle := c.Window.Add(key, NewNode[K](key, value))
 	c.DataMap[key] = addEle
 	c.Sketch.Increment(key)
 	if windowCandidateEle == nil { // 表示window不用淘汰
@@ -69,7 +69,7 @@ func (c *SizeCache[K]) Set(key K, value interface{}) {
 	}
 	if !c.Probation.IsFull() { // 表示probation不用淘汰, 可以直接把windowCandidateEle移动到probation
 		c.Probation.Add(key, windowCandidateEle.Value)
-		node := windowCandidateEle.Value.(*global.Node[K])
+		node := windowCandidateEle.Value.(*Node[K])
 		node.InProbation()
 		return
 	}
@@ -77,7 +77,7 @@ func (c *SizeCache[K]) Set(key K, value interface{}) {
 	if probationCandidateEle == nil {
 		return
 	}
-	windowNode, probationNode := windowCandidateEle.Value.(*global.Node[K]), probationCandidateEle.Value.(*global.Node[K])
+	windowNode, probationNode := windowCandidateEle.Value.(*Node[K]), probationCandidateEle.Value.(*Node[K])
 	windowFreq, probationFreq := c.Sketch.Frequency(windowNode.Key), c.Sketch.Frequency(probationNode.Key)
 
 	if windowFreq < probationFreq { // 淘汰window
@@ -102,7 +102,7 @@ func (c *SizeCache[K]) Set(key K, value interface{}) {
 
 func (c *SizeCache[K]) Get(key K) (interface{}, bool) {
 	if ele, ok := c.DataMap[key]; ok {
-		node := ele.Value.(*global.Node[K])
+		node := ele.Value.(*Node[K])
 		c.Sketch.Increment(node.Key)
 		return node.Value, true
 	}

@@ -2,7 +2,6 @@ package caches_test
 
 import (
 	"gaffeine/caches"
-	"gaffeine/global"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -38,8 +37,8 @@ func TestSet_new(t *testing.T) {
 
 	ele, ok := cache.DataMap[k]
 	assert.True(t, ok)
-	assert.Equal(t, v, ele.Value.(*global.Node[string]).Value.(int))
-	assert.True(t, ele.Value.(*global.Node[string]).IsInWindow())
+	assert.Equal(t, v, ele.Value.(*caches.Node[string]).Value.(int))
+	assert.True(t, ele.Value.(*caches.Node[string]).IsInWindow())
 }
 
 func TestSet_update(t *testing.T) {
@@ -52,8 +51,8 @@ func TestSet_update(t *testing.T) {
 
 	ele, ok := cache.DataMap[k]
 	assert.True(t, ok)
-	assert.Equal(t, v2, ele.Value.(*global.Node[string]).Value.(int))
-	assert.True(t, ele.Value.(*global.Node[string]).IsInWindow())
+	assert.Equal(t, v2, ele.Value.(*caches.Node[string]).Value.(int))
+	assert.True(t, ele.Value.(*caches.Node[string]).IsInWindow())
 }
 
 func TestSet_moveToProbationFromWindow(t *testing.T) {
@@ -66,15 +65,15 @@ func TestSet_moveToProbationFromWindow(t *testing.T) {
 	cache.Set(k3, v3)
 
 	ele, _ := cache.DataMap[k1]
-	assert.True(t, ele.Value.(*global.Node[string]).IsInProbation())
+	assert.True(t, ele.Value.(*caches.Node[string]).IsInProbation())
 
 	ele, _ = cache.DataMap[k2]
-	assert.Equal(t, v2, ele.Value.(*global.Node[string]).Value.(int))
-	assert.True(t, ele.Value.(*global.Node[string]).IsInWindow())
+	assert.Equal(t, v2, ele.Value.(*caches.Node[string]).Value.(int))
+	assert.True(t, ele.Value.(*caches.Node[string]).IsInWindow())
 
 	ele, _ = cache.DataMap[k3]
-	assert.Equal(t, v3, ele.Value.(*global.Node[string]).Value.(int))
-	assert.True(t, ele.Value.(*global.Node[string]).IsInWindow())
+	assert.Equal(t, v3, ele.Value.(*caches.Node[string]).Value.(int))
+	assert.True(t, ele.Value.(*caches.Node[string]).IsInWindow())
 }
 
 //

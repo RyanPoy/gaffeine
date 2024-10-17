@@ -1,5 +1,7 @@
 package caches
 
+import "gaffeine/global"
+
 // Copyright 2009 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
@@ -11,6 +13,38 @@ package caches
 //	for e := l.Front(); e != nil; e = e.Next() {
 //		// do something with e.Value
 //	}
+const (
+	WindowPos = iota
+	ProbationPos
+	ProtectedPos
+)
+
+type Node[K global.Key] struct {
+	Key   K
+	Value any
+	pos   int
+}
+
+func NewNode[K global.Key](key K, v any) *Node[K] {
+	return &Node[K]{
+		Key:   key,
+		Value: v,
+		pos:   WindowPos,
+	}
+}
+
+func (v *Node[K]) InWindow()    { v.pos = WindowPos }
+func (v *Node[K]) InProbation() { v.pos = ProbationPos }
+func (v *Node[K]) InProtected() { v.pos = ProtectedPos }
+func (v *Node[K]) IsInWindow() bool {
+	return v.pos == WindowPos
+}
+func (v *Node[K]) IsInProbation() bool {
+	return v.pos == ProbationPos
+}
+func (v *Node[K]) IsInProtected() bool {
+	return v.pos == ProtectedPos
+}
 
 // Element is an element of a linked list.
 type Element struct {
