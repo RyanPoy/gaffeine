@@ -16,18 +16,23 @@ type Node[K Key] struct {
 	pos   int
 }
 
-func NewNode[K Key](v any) *Node[K] {
-	return &Node[K]{Value: v, pos: WindowPos}
+func NewNode[K Key](key K, v any) *Node[K] {
+	return &Node[K]{
+		Key:   key,
+		Value: v,
+		pos:   WindowPos,
+	}
 }
+
 func (v *Node[K]) InWindow()    { v.pos = WindowPos }
 func (v *Node[K]) InProbation() { v.pos = ProbationPos }
 func (v *Node[K]) InProtected() { v.pos = ProtectedPos }
-func (v *Node[K]) isInWindow() bool {
+func (v *Node[K]) IsInWindow() bool {
 	return v.pos == WindowPos
 }
-func (v *Node[K]) isInProbation() bool {
+func (v *Node[K]) IsInProbation() bool {
 	return v.pos == ProbationPos
 }
-func (v *Node[K]) isInProtected() bool {
+func (v *Node[K]) IsInProtected() bool {
 	return v.pos == ProtectedPos
 }
