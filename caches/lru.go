@@ -2,19 +2,10 @@ package caches
 
 import "gaffeine/global"
 
-// Copyright 2009 The Go Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
+type Position int
 
-// Package lru implements a doubly linked lru.
-//
-// To iterate over a lru (where l is a *LRU):
-//
-//	for e := l.Front(); e != nil; e = e.Next() {
-//		// do something with e.Value
-//	}
 const (
-	WindowPos = iota
+	WindowPos Position = iota
 	ProbationPos
 	ProtectedPos
 )
@@ -24,15 +15,19 @@ type Element[K global.Key] struct {
 	next, prev *Element[K]
 	Key        K
 	Value      any // The value stored with this element.
-	pos        int
+	pos        Position
 }
 
-func NewElement[K global.Key](key K, v any) *Element[K] {
-	return &Element[K]{
-		Key:   key,
-		Value: v,
-		pos:   WindowPos,
-	}
+func WindowElement[K global.Key](key K, v any) *Element[K] {
+	return &Element[K]{Key: key, Value: v, pos: WindowPos}
+}
+
+func ProbationElement[K global.Key](key K, v any) *Element[K] {
+	return &Element[K]{Key: key, Value: v, pos: ProbationPos}
+}
+
+func ProtectedElement[K global.Key](key K, v any) *Element[K] {
+	return &Element[K]{Key: key, Value: v, pos: ProtectedPos}
 }
 
 func (e *Element[K]) InWindow()    { e.pos = WindowPos }
@@ -170,6 +165,12 @@ func (l *LRU[K]) MoveToFront(e *Element[K]) {
 	// see comment in LRU.Remove about initialization of l
 	l.move(e, &l.root)
 }
+func (l *LRU[K]) InsertAtFront(e *Element[K]) {
+	l.insert(e, &l.root)
+}
+func (l *LRU[K]) InsertAtBack(e *Element[K]) {
+	l.insert(e, l.root.prev)
+}
 
 // MoveToBack moves element e to the back of lru l.
 // If e is not an element of l, the lru is not modified.
@@ -208,6 +209,7 @@ func (l *LRU[K]) EvictBack() *Element[K] {
 		return nil
 	}
 	back := l.Back()
+
 	l.Remove(back)
 	return back
 }

@@ -74,10 +74,8 @@ func (c *SizeCache[K]) Set(key K, value interface{}) {
 	windowCandidateEle := c.Window.EvictBack()
 	if !c.Probation.IsFull() {
 		// 如果probation没有满，则把windowCandidateEle移动到probation的first
-		ele = c.Probation.PushFront(windowCandidateEle.Value)
-		ele.Key = windowCandidateEle.Key
-		ele.InProbation()
-		c.DataMap[ele.Key] = ele
+		c.Probation.InsertAtFront(windowCandidateEle)
+		windowCandidateEle.InProbation()
 		return
 	}
 
