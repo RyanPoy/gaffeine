@@ -67,7 +67,7 @@ func (c *SizeCache[K]) Set(key K, value interface{}) {
 	c.DataMap[key] = ele
 	c.Sketch.Increment(key)
 
-	windowCandidateEle, ok := c.evictFromLRU(c.Window)
+	windowCandidateEle, ok := c.evictFromLRU(c.Window, func() bool { return c.Window.NeedEvict() })
 	if !ok {
 		return
 	}
@@ -106,8 +106,8 @@ func (c *SizeCache[K]) Set(key K, value interface{}) {
 	return
 }
 
-func (c *SizeCache[K]) evictFromLRU(lru *LRU[K]) (*Element[K], bool) {
-	if !lru.NeedEvict() {
+func (c *SizeCache[K]) evictFromLRU(lru *LRU[K], checkFunc func() bool) (*Element[K], bool) {
+	if !checkFunc() {
 		return nil, false
 	}
 	ele := lru.EvictBack()
