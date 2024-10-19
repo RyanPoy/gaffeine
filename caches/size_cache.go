@@ -93,19 +93,15 @@ func (c *SizeCache[K]) Set(key K, value interface{}) {
 	} else if windowFreq > probationFreq { // 淘汰probation，并把windowCandidateEle移动到probation
 		delete(c.DataMap, probationCandidateEle.Key)
 		c.Probation.EvictBack()
-		ele = c.Probation.PushFront(windowCandidateEle.Value)
-		ele.Key = windowCandidateEle.Key
-		ele.InProbation()
-		c.DataMap[ele.Key] = ele
+		c.Probation.InsertAtFront(windowCandidateEle)
+		windowCandidateEle.InProbation()
 	} else if rand.Int()%2 == 0 { // 随机淘汰：如果随机数是偶数，淘汰window
 		delete(c.DataMap, windowCandidateEle.Key)
 	} else {
 		delete(c.DataMap, probationCandidateEle.Key)
 		c.Probation.EvictBack()
-		ele = c.Probation.PushFront(windowCandidateEle.Value)
-		ele.Key = windowCandidateEle.Key
-		ele.InProbation()
-		c.DataMap[ele.Key] = ele
+		c.Probation.InsertAtFront(windowCandidateEle)
+		windowCandidateEle.InProbation()
 	}
 	return
 }
