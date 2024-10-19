@@ -68,12 +68,13 @@ func (c *SizeCache[K]) Set(key K, value interface{}) {
 	c.Sketch.Increment(key)
 
 	//windowCandidateEle, ok := c.evictFromLRU(c.Window, func() bool { return c.Window.NeedEvict() })
-	windowCandidateEle, ok := c.evictFromLRU(c.Window, c.Window.NeedEvict)
+	windowCandidateEle, ok := c.evictFromLRU(c.Window)
 	if !ok {
 		return
 	}
 
-	if !c.Probation.IsFull() {
+	probationCandidateEle, ok := c.peekEvictFromLRU(c.Probation)
+	if !ok {
 		// 如果probation没有满，则把windowCandidateEle移动到probation的first
 		c.Probation.InsertAtFront(windowCandidateEle)
 		windowCandidateEle.InProbation()
@@ -81,11 +82,6 @@ func (c *SizeCache[K]) Set(key K, value interface{}) {
 	}
 
 	// 到这里，就证明probation也可能需要淘汰。所以需要进行选举了
-	probationCandidateEle := c.Probation.Back()
-	if probationCandidateEle == nil {
-		return
-	}
-
 	windowFreq := c.Sketch.Frequency(windowCandidateEle.Key)
 	probationFreq := c.Sketch.Frequency(probationCandidateEle.Key)
 
@@ -107,8 +103,8 @@ func (c *SizeCache[K]) Set(key K, value interface{}) {
 	return
 }
 
-func (c *SizeCache[K]) evictFromLRU(lru *LRU[K], checkFunc func() bool) (*Element[K], bool) {
-	if !checkFunc() {
+func (c *SizeCache[K]) evictFromLRU(lru *LRU[K]) (*Element[K], bool) {
+	if !lru.NeedEvict() {
 		return nil, false
 	}
 	ele := lru.EvictBack()
@@ -123,6 +119,22 @@ func (c *SizeCache[K]) evictFromLRU(lru *LRU[K], checkFunc func() bool) (*Elemen
 	}
 	return ele, true
 }
+
+func (c *SizeCache[K]) peekEvictFromLRU(lru *LRU[K]) (*Element[K], bool) {
+	ele, ok := c.evictFromLRU(lru) // 可能发生了淘汰，也可能没有发生淘汰，不重要，主要是把lru的length <= maxSize
+	if !lru.IsFull() {
+		return nil, false
+	}
+	ele2 := lru.Back()
+	if ok {
+		if c.Sketch.Frequency(ele.Key) > c.Sketch.Frequency(ele2.Key) {
+			ele2.Key = ele.Key
+			ele2.Value = ele.Value
+		}
+	}
+	return ele2, true
+}
+
 func (c *SizeCache[K]) Get(key K) (interface{}, bool) {
 	if ele, ok := c.DataMap[key]; ok {
 		c.Sketch.Increment(ele.Key)
