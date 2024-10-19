@@ -67,11 +67,11 @@ func (c *SizeCache[K]) Set(key K, value interface{}) {
 	c.DataMap[key] = ele
 	c.Sketch.Increment(key)
 
-	if !c.Window.NeedEvict() {
+	windowCandidateEle, ok := c.evictFromLRU(c.Window)
+	if !ok {
 		return
 	}
 
-	windowCandidateEle := c.Window.EvictBack()
 	if !c.Probation.IsFull() {
 		// 如果probation没有满，则把windowCandidateEle移动到probation的first
 		c.Probation.InsertAtFront(windowCandidateEle)
@@ -106,6 +106,22 @@ func (c *SizeCache[K]) Set(key K, value interface{}) {
 	return
 }
 
+func (c *SizeCache[K]) evictFromLRU(lru *LRU[K]) (*Element[K], bool) {
+	if !lru.NeedEvict() {
+		return nil, false
+	}
+	ele := lru.EvictBack()
+	for {
+		if !lru.NeedEvict() {
+			break
+		}
+		ele2 := lru.EvictBack()
+		if c.Sketch.Frequency(ele2.Key) > c.Sketch.Frequency(ele.Key) {
+			ele = ele2
+		}
+	}
+	return ele, true
+}
 func (c *SizeCache[K]) Get(key K) (interface{}, bool) {
 	if ele, ok := c.DataMap[key]; ok {
 		c.Sketch.Increment(ele.Key)
