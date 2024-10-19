@@ -121,18 +121,18 @@ func (c *SizeCache[K]) evictFromLRU(lru *LRU[K]) (*Element[K], bool) {
 }
 
 func (c *SizeCache[K]) peekEvictFromLRU(lru *LRU[K]) (*Element[K], bool) {
-	ele, ok := c.evictFromLRU(lru) // 可能发生了淘汰，也可能没有发生淘汰，不重要，主要是把lru的length <= maxSize
+	evictedEle, ok := c.evictFromLRU(lru) // 可能发生了淘汰，也可能没有发生淘汰，不重要，主要是把lru的length <= maxSize
 	if !lru.IsFull() {
 		return nil, false
 	}
-	ele2 := lru.Back()
+	backEle := lru.Back()
 	if ok {
-		if c.Sketch.Frequency(ele.Key) > c.Sketch.Frequency(ele2.Key) {
-			ele2.Key = ele.Key
-			ele2.Value = ele.Value
+		if c.Sketch.Frequency(evictedEle.Key) > c.Sketch.Frequency(backEle.Key) {
+			backEle.Key = evictedEle.Key
+			backEle.Value = evictedEle.Value
 		}
 	}
-	return ele2, true
+	return backEle, true
 }
 
 func (c *SizeCache[K]) Get(key K) (interface{}, bool) {
